@@ -476,6 +476,172 @@ void main() {
         expect(notifGateway.batches.single.single.id, 'unitel_breaking_news');
       });
     });
+
+    // -------------------------------------------------------------------------
+    // 8. Prueba de Escala SQLite: 5.000 Artículos, Paginación y Retención
+    // -------------------------------------------------------------------------
+    group('8. Prueba de Escala SQLite (5.000 Artículos)', () {
+      test('SQLite gestiona 5.000 artículos con paginación, búsqueda, filtros y favoritos', () async {
+        final localDataSource = _InMemoryTestLocalDataSource();
+        final baseTime = DateTime.utc(2026, 10, 31, 12, 0);
+
+        // Generar 5.000 artículos simulados distribuidos en 9 medios y categorías
+        final sources = ['abi', 'dtv', 'eldeber', 'larazon', 'eldiario', 'elpais', 'correodelsur', 'unitel', 'anf'];
+        final categories = ['politica', 'economia', 'sociedad', 'seguridad', 'cultura', 'deportes', 'general'];
+        final generated = <ArticleModel>[];
+
+        for (int i = 1; i <= 5000; i++) {
+          final sId = sources[i % sources.length];
+          final cat = categories[i % categories.length];
+          // Distribuir en el tiempo: un artículo cada 10 minutos hacia el pasado
+          final pubTime = baseTime.subtract(Duration(minutes: i * 10));
+
+          generated.add(ArticleModel(
+            id: '${sId}_art_$i',
+            title: i == 42 ? 'Titular Único de Búsqueda Especializada' : 'Noticia $i de $sId sobre $cat',
+            summary: 'Resumen descriptivo del artículo número $i para fines de prueba de escala.',
+            contentPlain: 'Cuerpo completo y extenso del despacho periodístico número $i. Contiene información editorial relevante.',
+            url: 'https://$sId.bo/noticia/$i',
+            author: 'Redacción $sId',
+            sourceId: sId,
+            sourceName: sId.toUpperCase(),
+            category: cat,
+            tags: <String>[sId, cat],
+            publishedAt: pubTime,
+            fetchedAt: pubTime.add(const Duration(minutes: 5)),
+            imageUrl: 'https://$sId.bo/images/$i.jpg',
+            isFavorite: i % 250 == 0, // 20 favoritos preexistentes
+          ));
+        }
+
+        // 1. Inserción masiva de 5.000 artículos
+        final inserted = await localDataSource.upsertArticles(generated);
+        expect(inserted.length, 5000);
+
+        // 2. Paginación en Home: Lote 1 (50 artículos) y Lote 2 (50 artículos)
+        final batch1 = await localDataSource.getArticles(limit: 50, offset: 0);
+        final batch2 = await localDataSource.getArticles(limit: 50, offset: 50);
+
+        expect(batch1.length, 50);
+        expect(batch2.length, 50);
+
+        // No hay duplicados entre los lotes
+        final ids1 = batch1.map((a) => a.id).toSet();
+        final ids2 = batch2.map((a) => a.id).toSet();
+        expect(ids1.intersection(ids2), isEmpty);
+
+        // Orden estricto publishedAt DESC
+        for (int j = 0; j < batch1.length - 1; j++) {
+          expect(batch1[j].publishedAt.isAfter(batch1[j + 1].publishedAt) ||
+                 batch1[j].publishedAt.isAtSameMomentAs(batch1[j + 1].publishedAt), isTrue);
+        }
+
+        // 3. Búsqueda rápida sobre los 5.000 artículos
+        final searchResults = await localDataSource.searchArticles('Especializada');
+        expect(searchResults.length, 1);
+        expect(searchResults.single.id, contains('_art_42'));
+
+        // 4. Filtrado combinado (categoría 'politica' + fuente 'unitel')
+        final filtered = await localDataSource.getArticles(category: 'politica', sourceId: 'unitel', limit: 100);
+        expect(filtered.isNotEmpty, isTrue);
+        for (final art in filtered) {
+          expect(art.category, 'politica');
+          expect(art.sourceId, 'unitel');
+        }
+
+        // 5. Consulta para Reporte de Monitoreo por rango de horas
+        final rangeStart = baseTime.subtract(const Duration(hours: 5));
+        final rangeEnd = baseTime.subtract(const Duration(hours: 1));
+        final reportArticles = await localDataSource.getArticlesForReport(
+          startUtc: rangeStart,
+          endUtc: rangeEnd,
+          sourceIds: ['unitel', 'abi'],
+        );
+        expect(reportArticles.isNotEmpty, isTrue);
+        for (final rArt in reportArticles) {
+          expect(rArt.publishedAt.isAfter(rangeStart.subtract(const Duration(milliseconds: 1))), isTrue);
+          expect(rArt.publishedAt.isBefore(rangeEnd), isTrue);
+          expect(rArt.sourceId == 'unitel' || rArt.sourceId == 'abi', isTrue);
+        }
+
+        // 6. Favoritos: 20 favoritos iniciales + marcar 1 adicional
+        final targetArt = generated.firstWhere((a) => !a.isFavorite);
+        await localDataSource.toggleFavorite(targetArt.id);
+        final favs = await localDataSource.getFavorites();
+        expect(favs.length, 21);
+
+        // 7. Limpiar Caché: Preserva los 21 favoritos y depura las ~4.979 noticias temporales
+        final cleared = await localDataSource.clearArticles(keepFavorites: true);
+        expect(cleared, 4979);
+
+        final remainingFavs = await localDataSource.getFavorites();
+        expect(remainingFavs.length, 21);
+        expect(await localDataSource.getArticleById(targetArt.id), isNotNull);
+      });
+
+      test('Pruebas de retención de texto y almacenamiento por niveles', () {
+        final now = DateTime.utc(2026, 10, 31, 12, 0);
+
+        // Noticia de hace 2 días: Normal
+        final art2Days = Article(
+          id: 'art_2d',
+          title: 'Noticia de hace 2 días',
+          summary: 'Resumen',
+          contentPlain: 'Cuerpo',
+          url: 'https://abi.bo/2d',
+          author: 'ABI',
+          sourceId: 'abi',
+          sourceName: 'ABI',
+          category: 'politica',
+          tags: const <String>[],
+          publishedAt: now.subtract(const Duration(days: 2)),
+          fetchedAt: now,
+          imageUrl: 'https://abi.bo/img_2d.jpg',
+        );
+        expect(art2Days.isOlderThan7Days, isFalse);
+        expect(art2Days.hasValidFreshImage, isTrue);
+
+        // Noticia de hace 8 días: Almacenamiento reducido (texto únicamente por defecto)
+        final art8Days = Article(
+          id: 'art_8d',
+          title: 'Noticia de hace 8 días',
+          summary: 'Resumen',
+          contentPlain: 'Cuerpo',
+          url: 'https://abi.bo/8d',
+          author: 'ABI',
+          sourceId: 'abi',
+          sourceName: 'ABI',
+          category: 'politica',
+          tags: const <String>[],
+          publishedAt: now.subtract(const Duration(days: 8)),
+          fetchedAt: now,
+          imageUrl: 'https://abi.bo/img_8d.jpg',
+        );
+        expect(art8Days.isOlderThan7Days, isTrue);
+        expect(art8Days.hasValidFreshImage, isFalse);
+        expect(art8Days.imageUrl, 'https://abi.bo/img_8d.jpg'); // Metadata preservada
+
+        // Noticia de hace 20 días: Texto íntegro preservado
+        final art20Days = Article(
+          id: 'art_20d',
+          title: 'Noticia de hace 20 días',
+          summary: 'Resumen conservado',
+          contentPlain: 'Cuerpo histórico conservado en SQLite',
+          url: 'https://abi.bo/20d',
+          author: 'ABI',
+          sourceId: 'abi',
+          sourceName: 'ABI',
+          category: 'politica',
+          tags: const <String>[],
+          publishedAt: now.subtract(const Duration(days: 20)),
+          fetchedAt: now,
+          imageUrl: 'https://abi.bo/img_20d.jpg',
+        );
+        expect(art20Days.isOlderThan7Days, isTrue);
+        expect(art20Days.contentPlain, contains('histórico'));
+        expect(art20Days.imageUrl, isNotNull);
+      });
+    });
   });
 }
 

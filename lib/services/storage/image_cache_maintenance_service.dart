@@ -55,3 +55,4 @@ class ImageCacheMaintenanceService {
     return difference <= maxAge;
   }
 }
+
