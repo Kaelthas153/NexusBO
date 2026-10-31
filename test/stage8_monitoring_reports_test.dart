@@ -783,6 +783,10 @@ class _InMemoryTestPreferences implements AppPreferencesDataSource {
   Future<bool> isCacheClearedPendingBaseline({bool reload = false}) async => false;
   @override
   Future<void> setCacheClearedPendingBaseline(bool value) async {}
+  @override
+  Future<bool> getEasterEggUnlocked({bool reload = false}) async => false;
+  @override
+  Future<void> setEasterEggUnlocked(bool unlocked) async {}
 }
 
 class _RecordingTestNotificationGateway implements NotificationGateway {

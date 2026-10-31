@@ -43,6 +43,8 @@ key.properties
 /android/app/debug
 /android/app/profile
 /android/app/release
+*.apk
+release/*.apk
 
 # Credentials & secrets
 google-services.json

@@ -858,6 +858,12 @@ class _InMemoryExtPreferences implements AppPreferencesDataSource {
 
   @override
   Future<void> setAutoRefreshOnOpen(bool enabled) async {}
+
+  @override
+  Future<bool> getEasterEggUnlocked({bool reload = false}) async => false;
+
+  @override
+  Future<void> setEasterEggUnlocked(bool unlocked) async {}
 }
 
 class _ExtRecordingGateway implements NotificationGateway {

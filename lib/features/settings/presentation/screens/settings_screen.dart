@@ -5,6 +5,7 @@ import 'package:nexusbo/app/theme/app_colors.dart';
 import 'package:nexusbo/app/theme/theme_mode_provider.dart';
 import 'package:nexusbo/core/widgets/editorial_divider.dart';
 import 'package:nexusbo/features/news/presentation/providers/news_providers.dart';
+import 'package:nexusbo/features/secret/about_version_tile.dart';
 import 'package:nexusbo/features/settings/presentation/providers/settings_provider.dart';
 import 'package:nexusbo/services/background/background_task_service.dart';
 
@@ -29,7 +30,7 @@ class SettingsScreen extends ConsumerWidget {
         SnackBar(
           content: Text(
             requestedValue
-                ? 'Sincronización en segundo plano activada con Android WorkManager.'
+                ? 'Sincronización en segundo plano activada.'
                 : 'Sincronización en segundo plano desactivada.',
           ),
           duration: const Duration(seconds: 2),
@@ -52,7 +53,7 @@ class SettingsScreen extends ConsumerWidget {
     if (requestedValue && enabled) {
       message = 'Notificaciones de noticias activadas.';
     } else if (requestedValue && !enabled) {
-      message = 'Permiso de notificaciones denegado en Android.';
+      message = 'Permiso de notificaciones no concedido.';
     } else {
       message = 'Notificaciones de noticias desactivadas.';
     }
@@ -94,11 +95,11 @@ class SettingsScreen extends ConsumerWidget {
         }
       case BackgroundTaskOutcome.retry:
         summary =
-            'Sync background sin red (WorkManager -> retry): '
+            'Sync background sin conexión: '
             '${result.errorMessage ?? "Error temporal"}. Datos locales intactos.';
       case BackgroundTaskOutcome.failure:
         summary =
-            'Sync background falló sin afectar SQLite: '
+            'Sync background falló: '
             '${result.errorMessage ?? "Error de formato"}.';
     }
 
@@ -128,7 +129,7 @@ class SettingsScreen extends ConsumerWidget {
         SnackBar(
           content: Text(
             sent
-                ? 'Notificación de prueba enviada al canal nexusbo_news.'
+                ? 'Notificación de prueba enviada.'
                 : 'No se pudo mostrar la notificación (permiso de Android no concedido).',
           ),
           duration: const Duration(seconds: 3),
@@ -152,7 +153,7 @@ class SettingsScreen extends ConsumerWidget {
         SnackBar(
           content: Text(
             sent
-                ? 'Notificación de reporte horario enviada al canal nexusbo_reports.'
+                ? 'Notificación de reporte enviada.'
                 : 'No se pudo emitir la notificación (permiso no concedido o sin noticias).',
           ),
           duration: const Duration(seconds: 3),
@@ -256,7 +257,7 @@ class SettingsScreen extends ConsumerWidget {
             _SettingsSwitchRow(
               title: 'Sincronización en segundo plano',
               subtitle:
-                  'Actualizar noticias periódicamente (~60 min) con Android WorkManager aunque NexusBO no esté abierta.',
+                  'Actualiza las noticias periódicamente incluso cuando no estás usando NexusBO.',
               value: settings.backgroundSyncEnabled,
               onChanged: (val) => _handleBackgroundSyncToggle(context, ref, val),
             ),
@@ -266,7 +267,7 @@ class SettingsScreen extends ConsumerWidget {
             _SettingsSwitchRow(
               title: 'Notificaciones de noticias',
               subtitle:
-                  'Recibir avisos de nuevas noticias publicadas por los medios monitoreados en el canal nexusbo_news.',
+                  'Recibir avisos cuando se publiquen noticias de última hora.',
               value: settings.notificationsEnabled,
               onChanged: (val) => _handleNotificationsToggle(context, ref, val),
             ),
@@ -276,7 +277,7 @@ class SettingsScreen extends ConsumerWidget {
             _SettingsSwitchRow(
               title: 'Reportes horarios automáticos',
               subtitle:
-                  'Avisar cuando se cumpla una nueva hora con el resumen de noticias en el canal nexusbo_reports.',
+                  'Recibir un aviso cada hora con el resumen de noticias monitoreadas.',
               value: settings.hourlyReportsEnabled,
               onChanged: (val) {
                 ref
@@ -337,9 +338,9 @@ class SettingsScreen extends ConsumerWidget {
               padding: EdgeInsets.symmetric(horizontal: 20),
             ),
             const _SettingsInfoRow(
-              title: 'Plataforma editorial activa',
-              subtitle: 'Red boliviana de noticias multi-medio',
-              trailingText: 'Offline-First',
+              title: 'Monitoreo editorial',
+              subtitle: '9 medios informativos de Bolivia',
+              trailingText: 'Activo',
             ),
             const EditorialDivider(),
 
@@ -348,9 +349,9 @@ class SettingsScreen extends ConsumerWidget {
             // -----------------------------------------------------------------
             const _SectionHeader(title: 'CACHÉ Y ALMACENAMIENTO'),
             _SettingsInfoRow(
-              title: 'Artículos almacenados offline',
-              subtitle: 'Conserva tus noticias en favoritos sin conexión.',
-              trailingText: '$cachedCount en SQLite',
+              title: 'Noticias almacenadas',
+              subtitle: 'Contenidos disponibles para lectura sin conexión.',
+              trailingText: '$cachedCount',
             ),
             const EditorialDivider(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -458,7 +459,7 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsActionRow(
                 title: 'Enviar notificación de prueba',
                 subtitle:
-                    'Verifica canal nexusbo_news, permiso, visualización y navegación al tocar sin alterar SQLite.',
+                    'Verifica canal nexusbo_news, permiso, visualización y navegación al tocar sin alterar datos locales.',
                 icon: Icons.notifications_active_outlined,
                 onTap: () => _handleDebugTestNotification(context, ref),
               ),
@@ -485,13 +486,7 @@ class SettingsScreen extends ConsumerWidget {
               const EditorialDivider(),
             ],
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              child: Text(
-                'NexusBO v1.0.0 · Edición Android',
-                style: textTheme.bodySmall,
-              ),
-            ),
+            const AboutVersionTile(),
           ],
         ),
       ),

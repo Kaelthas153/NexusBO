@@ -7,6 +7,8 @@ import 'package:nexusbo/core/widgets/editorial_divider.dart';
 import 'package:nexusbo/core/widgets/empty_state_view.dart';
 import 'package:nexusbo/features/news/domain/entities/article.dart';
 import 'package:nexusbo/features/news/presentation/providers/news_providers.dart';
+import 'package:nexusbo/features/secret/unlocked_bouquet_badge.dart';
+import 'package:nexusbo/features/settings/presentation/providers/settings_provider.dart';
 import 'package:nexusbo/features/news/presentation/screens/article_detail_screen.dart';
 import 'package:nexusbo/features/news/presentation/widgets/category_filter_bar.dart';
 import 'package:nexusbo/features/news/presentation/widgets/editorial_article_row.dart';
@@ -59,15 +61,15 @@ class _NewsFeedScreenState extends ConsumerState<NewsFeedScreen> {
   Future<void> _handleManualRefresh() async {
     final result = await ref.read(newsFeedProvider.notifier).refresh();
     if (!mounted || result == null) return;
-    final totalStored = ref.read(newsFeedProvider).totalCachedCount;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            'Sincronización completada: ${result.fetched} recibidas · '
-            '${result.inserted} nuevas · $totalStored almacenadas en SQLite.',
+            result.inserted > 0
+                ? 'Actualización completada: ${result.inserted} noticias nuevas.'
+                : 'Noticias al día. No hay nuevas publicaciones.',
           ),
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
@@ -86,6 +88,7 @@ class _NewsFeedScreenState extends ConsumerState<NewsFeedScreen> {
     final sourceOptions = ref.watch(sourceFilterOptionsProvider);
     final feedState = ref.watch(newsFeedProvider);
     final articles = feedState.articles;
+    final isEasterEggUnlocked = ref.watch(easterEggUnlockedProvider);
 
     final editorialDate = BoliviaDateFormatter.formatEditorialHeader(
       DateTime.now().toUtc(),
@@ -97,7 +100,9 @@ class _NewsFeedScreenState extends ConsumerState<NewsFeedScreen> {
         articles.length > 1 ? articles.sublist(1) : const <Article>[];
 
     return Scaffold(
-      body: SafeArea(
+      body: Stack(
+        children: [
+          SafeArea(
         child: RefreshIndicator(
           color: colors.primary,
           backgroundColor: colors.surface,
@@ -385,13 +390,13 @@ class _NewsFeedScreenState extends ConsumerState<NewsFeedScreen> {
                               : Icons.cloud_download_outlined,
                           eyebrow: feedState.hasAnyCachedArticles
                               ? 'Filtro sin notas'
-                              : 'Caché SQLite vacía (0 artículos)',
+                              : 'Sin noticias almacenadas',
                           title: feedState.hasAnyCachedArticles
                               ? 'No hay noticias disponibles para estos filtros'
                               : 'Pantalla limpia lista para actualizar',
                           description: feedState.hasAnyCachedArticles
                               ? 'Prueba seleccionando otra sección editorial o cambiando la fuente de noticias.'
-                              : 'Desliza hacia abajo (pull-to-refresh) o pulsa el botón para descargar las noticias desde los medios bolivianos.',
+                              : 'Desliza hacia abajo o pulsa el botón para sincronizar las noticias de los medios bolivianos.',
                         ),
                         Center(
                           child: OutlinedButton.icon(
@@ -509,6 +514,14 @@ class _NewsFeedScreenState extends ConsumerState<NewsFeedScreen> {
           ),
         ),
       ),
-    );
+      if (isEasterEggUnlocked)
+        const Positioned(
+          right: 16,
+          bottom: 16,
+          child: UnlockedBouquetBadge(),
+        ),
+    ],
+  ),
+);
   }
 }

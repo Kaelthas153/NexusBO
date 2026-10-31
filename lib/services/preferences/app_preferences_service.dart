@@ -44,6 +44,11 @@ abstract interface class AppPreferencesDataSource {
   Future<List<String>> getReportSelectedSourceIds({bool reload = false});
 
   Future<void> setReportSelectedSourceIds(List<String> sourceIds);
+
+  // --- Interacción Secreta ---
+  Future<bool> getEasterEggUnlocked({bool reload = false});
+
+  Future<void> setEasterEggUnlocked(bool unlocked);
 }
 
 /// Implementación de [AppPreferencesDataSource] respaldada por [SharedPreferences].
@@ -64,6 +69,7 @@ class AppPreferencesService implements AppPreferencesDataSource {
   static const String keyReportSourcesModeAll = 'nexusbo_report_sources_mode_all';
   static const String keyReportSelectedSourceIds =
       'nexusbo_report_selected_source_ids';
+  static const String keyEasterEggUnlocked = 'nexusbo_easter_egg_unlocked';
 
   SharedPreferences? _prefsInstance;
 
@@ -196,6 +202,18 @@ class AppPreferencesService implements AppPreferencesDataSource {
   Future<void> setReportSelectedSourceIds(List<String> sourceIds) async {
     final prefs = await _getPrefs();
     await prefs.setStringList(keyReportSelectedSourceIds, sourceIds);
+  }
+
+  @override
+  Future<bool> getEasterEggUnlocked({bool reload = false}) async {
+    final prefs = await _getPrefs(reload: reload);
+    return prefs.getBool(keyEasterEggUnlocked) ?? false;
+  }
+
+  @override
+  Future<void> setEasterEggUnlocked(bool unlocked) async {
+    final prefs = await _getPrefs();
+    await prefs.setBool(keyEasterEggUnlocked, unlocked);
   }
 }
 

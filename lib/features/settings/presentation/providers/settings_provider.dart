@@ -23,6 +23,7 @@ class SettingsState {
     this.autoRefreshOnOpen = true,
     this.isWorkerScheduled = false,
     this.isRunningDebugSync = false,
+    this.easterEggUnlocked = false,
   });
 
   final bool isLoaded;
@@ -32,6 +33,7 @@ class SettingsState {
   final bool autoRefreshOnOpen;
   final bool isWorkerScheduled;
   final bool isRunningDebugSync;
+  final bool easterEggUnlocked;
 
   SettingsState copyWith({
     bool? isLoaded,
@@ -41,6 +43,7 @@ class SettingsState {
     bool? autoRefreshOnOpen,
     bool? isWorkerScheduled,
     bool? isRunningDebugSync,
+    bool? easterEggUnlocked,
   }) {
     return SettingsState(
       isLoaded: isLoaded ?? this.isLoaded,
@@ -51,6 +54,7 @@ class SettingsState {
       autoRefreshOnOpen: autoRefreshOnOpen ?? this.autoRefreshOnOpen,
       isWorkerScheduled: isWorkerScheduled ?? this.isWorkerScheduled,
       isRunningDebugSync: isRunningDebugSync ?? this.isRunningDebugSync,
+      easterEggUnlocked: easterEggUnlocked ?? this.easterEggUnlocked,
     );
   }
 }
@@ -67,6 +71,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
   AppPreferencesDataSource get _preferences => ref.read(appPreferencesProvider);
 
   Future<void> _loadAndReconcileSettings() async {
+    var savedEasterEgg = false;
+    try {
+      savedEasterEgg = await _preferences.getEasterEggUnlocked();
+      state = state.copyWith(easterEggUnlocked: savedEasterEgg);
+    } catch (_) {}
+
     try {
       final savedBackgroundSync = await _preferences.getBackgroundSyncEnabled();
       final savedNotifications = await _preferences.getNotificationsEnabled();
@@ -79,8 +89,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // 1. Reconciliar worker de fondo independientemente de las notificaciones
       if (savedBackgroundSync) {
         await BackgroundTaskService.instance.registerUniquePeriodicSync();
-        workerScheduled =
-            await BackgroundTaskService.instance.isPeriodicSyncScheduled();
+        workerScheduled = await BackgroundTaskService.instance
+            .isPeriodicSyncScheduled();
       } else {
         await BackgroundTaskService.instance.cancelPeriodicSync();
       }
@@ -103,12 +113,16 @@ class SettingsNotifier extends Notifier<SettingsState> {
         hourlyReportsEnabled: savedHourlyReports,
         autoRefreshOnOpen: savedAutoRefresh,
         isWorkerScheduled: workerScheduled,
+        easterEggUnlocked: savedEasterEgg,
       );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('NexusBO: Error al reconciliar preferencias de Ajustes: $e');
       }
-      state = state.copyWith(isLoaded: true);
+      state = state.copyWith(
+        isLoaded: true,
+        easterEggUnlocked: savedEasterEgg,
+      );
     }
   }
 
@@ -141,8 +155,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
     await _preferences.setBackgroundSyncEnabled(true);
     await BackgroundTaskService.instance.registerUniquePeriodicSync();
-    final scheduled =
-        await BackgroundTaskService.instance.isPeriodicSyncScheduled();
+    final scheduled = await BackgroundTaskService.instance
+        .isPeriodicSyncScheduled();
     state = state.copyWith(
       backgroundSyncEnabled: true,
       isWorkerScheduled: scheduled,
@@ -160,8 +174,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
       return false;
     }
 
-    final granted =
-        await NotificationService.instance.requestPermissionFromUi();
+    final granted = await NotificationService.instance
+        .requestPermissionFromUi();
     if (!granted) {
       await _preferences.setNotificationsEnabled(false);
       state = state.copyWith(notificationsEnabled: false);
@@ -229,9 +243,19 @@ class SettingsNotifier extends Notifier<SettingsState> {
     await NotificationService.instance.showDebugTestNotification();
     return true;
   }
+
+  /// Persiste el estado de desbloqueo del secreto visual y actualiza el estado reactivo.
+  Future<void> unlockEasterEgg() async {
+    await _preferences.setEasterEggUnlocked(true);
+    state = state.copyWith(easterEggUnlocked: true);
+  }
 }
 
 final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(
   SettingsNotifier.new,
 );
 
+/// Provider de conveniencia para consultar si el secreto está desbloqueado.
+final easterEggUnlockedProvider = Provider<bool>((ref) {
+  return ref.watch(settingsProvider.select((s) => s.easterEggUnlocked));
+});

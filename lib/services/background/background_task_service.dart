@@ -127,8 +127,9 @@ class BackgroundSyncOrchestrator {
       final isInitialOrPostClearSeed =
           wasDatabaseEmptyBeforeSync || wasCacheClearedPendingBaseline;
 
-      final seededSourceIds =
-          await _preferences.getSeededSourceIds(reload: true);
+      final seededSourceIds = await _preferences.getSeededSourceIds(
+        reload: true,
+      );
       final List<Article> notifiableArticles;
 
       if (isInitialOrPostClearSeed) {
@@ -164,9 +165,7 @@ class BackgroundSyncOrchestrator {
       }
 
       // Verificar y emitir notificación de reporte horario si corresponde
-      await _checkAndDispatchHourlyReportNotification(
-        syncResult: syncResult,
-      );
+      await _checkAndDispatchHourlyReportNotification(syncResult: syncResult);
 
       // Ejecutar pruning de noticias mayores a 30 días (conservando favoritas)
       // únicamente después de procesar y notificar las noticias nuevas.
@@ -237,8 +236,9 @@ class BackgroundSyncOrchestrator {
     DateTime? referenceUtc,
     bool force = false,
   }) async {
-    final hourlyEnabled =
-        await _preferences.getHourlyReportsEnabled(reload: true);
+    final hourlyEnabled = await _preferences.getHourlyReportsEnabled(
+      reload: true,
+    );
     if (!hourlyEnabled && !force) {
       return false;
     }
@@ -253,16 +253,18 @@ class BackgroundSyncOrchestrator {
     );
 
     if (!force) {
-      final lastNotified =
-          await _preferences.getLastHourlyReportWindowNotified(reload: true);
+      final lastNotified = await _preferences.getLastHourlyReportWindowNotified(
+        reload: true,
+      );
       if (lastNotified == window.windowId) {
         return false;
       }
     }
 
     final isAll = await _preferences.getReportSourcesModeAll(reload: true);
-    final selectedIds =
-        await _preferences.getReportSelectedSourceIds(reload: true);
+    final selectedIds = await _preferences.getReportSelectedSourceIds(
+      reload: true,
+    );
 
     final targetSourceIds = (isAll || selectedIds.isEmpty)
         ? const <String>[
@@ -391,9 +393,7 @@ class BackgroundTaskService {
         backgroundSyncTaskName,
         frequency: periodicFrequency,
         existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-        ),
+        constraints: Constraints(networkType: NetworkType.connected),
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: retryBackoffDelay,
       );
@@ -465,10 +465,7 @@ class BackgroundTaskService {
           dioClient: dioClient,
           localDataSource: localDataSource,
         ),
-        AnfNewsSource(
-          dioClient: dioClient,
-          localDataSource: localDataSource,
-        ),
+        AnfNewsSource(dioClient: dioClient, localDataSource: localDataSource),
       ],
     );
     final syncEngine = MultiSourceSyncEngine(

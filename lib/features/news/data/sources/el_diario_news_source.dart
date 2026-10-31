@@ -100,7 +100,8 @@ class ElDiarioNewsSource implements NewsSource {
     required DateTime fetchedAtUtc,
   }) {
     // 1. Enlace y URL canónica
-    final rawLink = item.findElements('link').firstOrNull?.innerText.trim() ??
+    final rawLink =
+        item.findElements('link').firstOrNull?.innerText.trim() ??
         item.findElements('guid').firstOrNull?.innerText.trim() ??
         '';
     if (rawLink.isEmpty) return null;
@@ -137,15 +138,17 @@ class ElDiarioNewsSource implements NewsSource {
     // 6. Extracción de imágenes estrictamente desde content:encoded (cero segundas peticiones)
     final contentImages = HtmlSanitizer.extractAllImageUrls(rawContent);
     final String? resolvedImageUrl = contentImages.firstOrNull;
-    final List<String> resolvedImageUrls =
-        List<String>.unmodifiable(contentImages);
+    final List<String> resolvedImageUrls = List<String>.unmodifiable(
+      contentImages,
+    );
 
     // 7. Autor desde dc:creator
     final rawAuthor =
         item.findElements('dc:creator').firstOrNull?.innerText.trim() ??
         item.findElements('creator').firstOrNull?.innerText.trim() ??
         item.findElements('author').firstOrNull?.innerText.trim();
-    final author = (rawAuthor != null &&
+    final author =
+        (rawAuthor != null &&
             rawAuthor.isNotEmpty &&
             rawAuthor.toLowerCase() != 'none')
         ? HtmlSanitizer.decodeHtmlEntities(rawAuthor)
@@ -165,8 +168,11 @@ class ElDiarioNewsSource implements NewsSource {
         : <String>[CategoryMapper.toDisplay(canonicalCategory)];
 
     // 9. Fecha de publicación RFC-822
-    final rawPubDate =
-        item.findElements('pubDate').firstOrNull?.innerText.trim();
+    final rawPubDate = item
+        .findElements('pubDate')
+        .firstOrNull
+        ?.innerText
+        .trim();
     final publishedAtUtc = rawPubDate != null && rawPubDate.isNotEmpty
         ? BoliviaDateFormatter.parseRssRfc822Utc(
             rawPubDate,
@@ -203,7 +209,10 @@ class ElDiarioNewsSource implements NewsSource {
       final y = match.group(1)!;
       final m = match.group(2)!;
       final d = match.group(3)!;
-      final slug = match.group(4)!.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]'), '');
+      final slug = match
+          .group(4)!
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9_-]'), '');
       if (slug.isNotEmpty) {
         return '${ApiConstants.elDiarioSourceId}_$y$m${d}_$slug';
       }
