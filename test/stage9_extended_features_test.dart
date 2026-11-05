@@ -242,7 +242,7 @@ void main() {
     // -------------------------------------------------------------------------
     group('5. Tiered Storage y Retención Indefinida de Texto', () {
       test('Artículos > 7 días tienen isOlderThan7Days = true y hasValidFreshImage = false', () {
-        final now = DateTime.utc(2026, 10, 31, 12);
+        final now = DateTime.now().toUtc();
         final freshArticle = Article(
           id: 'fresh_1',
           title: 'Noticia Fresca',
@@ -284,7 +284,7 @@ void main() {
 
       test('pruneOldArticles mantiene retención indefinida y no borra filas de texto', () async {
         final inMemoryDb = _InMemoryTestLocalDataSource();
-        final now = DateTime.utc(2026, 10, 31, 12);
+        final now = DateTime.now().toUtc();
 
         await inMemoryDb.upsertArticles(<ArticleModel>[
           ArticleModel(

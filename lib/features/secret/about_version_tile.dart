@@ -8,6 +8,10 @@ import 'package:nexusbo/features/secret/bouquet_reveal_overlay.dart';
 import 'package:nexusbo/features/secret/secret_tap_controller.dart';
 import 'package:nexusbo/features/settings/presentation/providers/settings_provider.dart';
 
+/// Mensaje informativo presentado en la notificación tipo toast en el primer toque.
+const String kSecretFirstTapHint =
+    'Parece que hay algo especial escondido por aquí ...';
+
 /// Notificación flotante informativa no bloqueante para los pasos previos al desbloqueo.
 ///
 /// Se posiciona en la parte superior/media de la pantalla, completamente separada
@@ -32,7 +36,8 @@ class SecretProgressNotice {
           child: Align(
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: const EdgeInsets.only(top: 24.0, left: 24.0, right: 24.0),
+              padding:
+                  const EdgeInsets.only(top: 24.0, left: 24.0, right: 24.0),
               child: _NoticePill(message: message),
             ),
           ),
@@ -43,7 +48,7 @@ class SecretProgressNotice {
     _entry = entry;
     overlay.insert(entry);
 
-    _timer = Timer(const Duration(milliseconds: 1400), () {
+    _timer = Timer(const Duration(milliseconds: 2000), () {
       dismiss();
     });
   }
@@ -109,7 +114,7 @@ class _NoticePill extends StatelessWidget {
 }
 
 /// Widget interactivo para la sección "Acerca de NexusBO" que responde a la
-/// secuencia secreta de 7 pulsaciones consecutivas.
+/// secuencia secreta de 3 pulsaciones consecutivas sobre el texto de versión.
 class AboutVersionTile extends ConsumerStatefulWidget {
   const AboutVersionTile({
     super.key,
@@ -130,7 +135,12 @@ class _AboutVersionTileState extends ConsumerState<AboutVersionTile> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.tapController ?? SecretTapController();
+    final isAlreadyUnlocked = ref.read(easterEggUnlockedProvider);
+    _controller = widget.tapController ??
+        SecretTapController(isUnlocked: isAlreadyUnlocked);
+    if (isAlreadyUnlocked) {
+      _controller.isUnlocked = true;
+    }
   }
 
   @override
@@ -140,22 +150,22 @@ class _AboutVersionTileState extends ConsumerState<AboutVersionTile> {
   }
 
   void _handleTap() {
+    // Si ya fue desbloqueado previamente, ignorar taps para no volver a ejecutar la animación
+    if (_controller.isUnlocked || ref.read(easterEggUnlockedProvider)) {
+      return;
+    }
+
     final outcome = _controller.registerTap();
 
     switch (outcome) {
+      case SecretTapOutcome.firstTapHint:
+        SecretProgressNotice.show(
+          context,
+          kSecretFirstTapHint,
+        );
+        break;
       case SecretTapOutcome.idle:
-        break;
-      case SecretTapOutcome.twoStepsRemaining:
-        SecretProgressNotice.show(
-          context,
-          'Estás a 2 pasos de desbloquear un secreto',
-        );
-        break;
-      case SecretTapOutcome.oneStepRemaining:
-        SecretProgressNotice.show(
-          context,
-          'Estás a 1 paso de desbloquear un secreto',
-        );
+        // Segundo toque: no mostrar mensajes adicionales
         break;
       case SecretTapOutcome.unlocked:
         SecretProgressNotice.dismiss();
@@ -163,6 +173,8 @@ class _AboutVersionTileState extends ConsumerState<AboutVersionTile> {
         unawaited(ref.read(settingsProvider.notifier).unlockEasterEgg());
         BouquetRevealOverlay.show(context);
         widget.onUnlocked?.call();
+        break;
+      case SecretTapOutcome.alreadyUnlocked:
         break;
     }
   }
@@ -199,7 +211,8 @@ class _AboutVersionTileState extends ConsumerState<AboutVersionTile> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Versión 1.0.0',
+              'NexusBO v1.0.0 - Edición Android',
+              textAlign: TextAlign.center,
               style: textTheme.bodySmall?.copyWith(
                 color: colors.textSecondary,
               ),
@@ -210,4 +223,3 @@ class _AboutVersionTileState extends ConsumerState<AboutVersionTile> {
     );
   }
 }
-
